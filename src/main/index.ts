@@ -406,6 +406,9 @@ const createTray = (): void => {
       label: 'Show Dashboard',
       click: () => {
         if (mainWindow) {
+          if (process.platform === 'darwin') {
+            app.dock?.show()
+          }
           mainWindow.show()
           mainWindow.focus()
         }
@@ -445,6 +448,9 @@ const updateTrayMenu = (isActive: boolean): void => {
       label: 'Show Dashboard',
       click: () => {
         if (mainWindow) {
+          if (process.platform === 'darwin') {
+            app.dock?.show()
+          }
           mainWindow.show()
           mainWindow.focus()
         }
@@ -497,6 +503,17 @@ app.whenReady().then(() => {
   // Create the main window
   mainWindow = createWindow()
 
+  // On macOS: keep Dock visible only while the window is visible
+  if (process.platform === 'darwin' && mainWindow) {
+    app.dock?.show()
+    mainWindow.on('show', () => {
+      app.dock?.show()
+    })
+    mainWindow.on('hide', () => {
+      app.dock?.hide()
+    })
+  }
+
   // Set up authentication IPC handlers
   ipcMain.handle('initiate-login', () => {
     initiateLogin()
@@ -533,6 +550,12 @@ app.whenReady().then(() => {
   })
 
   // Set up IPC handlers
+  ipcMain.on('quit-app', () => {
+    // Allow renderer to request a full quit
+    isAppQuitting = true
+    app.quit()
+  })
+
   ipcMain.on('minimize-to-tray', () => {
     if (!mainWindow) return
 
@@ -547,6 +570,9 @@ app.whenReady().then(() => {
 
     // Hide the window
     mainWindow.hide()
+    if (process.platform === 'darwin') {
+      app.dock?.hide()
+    }
   })
 
   // Toggle shortcut status
@@ -617,6 +643,9 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     mainWindow = createWindow()
   } else if (mainWindow) {
+    if (process.platform === 'darwin') {
+      app.dock?.show()
+    }
     mainWindow.show()
     mainWindow.focus()
   }
@@ -636,6 +665,7 @@ app.on('browser-window-created', (_, window) => {
       // On macOS, hide instead of close (unless app is quitting)
       event.preventDefault()
       window.hide()
+      app.dock?.hide()
       createTray() // Ensure tray is available
     }
   })
@@ -660,6 +690,9 @@ app.on('window-all-closed', () => {
     }
   } else {
     // On macOS, always keep running (unless explicitly quitting)
+    if (process.platform === 'darwin') {
+      app.dock?.hide()
+    }
     log('All windows closed, but keeping app running for global shortcuts')
     createTray()
   }

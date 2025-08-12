@@ -74,7 +74,7 @@ export function HowItWorks({ isActive, onLaunch }: HowItWorksProps): ReactElemen
         </div>
       )}
 
-      {!isActive && (
+      {/* {!isActive && (
         <div className="flex justify-center">
           <Button
             onClick={onLaunch}
@@ -84,7 +84,7 @@ export function HowItWorks({ isActive, onLaunch }: HowItWorksProps): ReactElemen
             Launch Rerit
           </Button>
         </div>
-      )}
+      )} */}
     </div>
   )
 }
