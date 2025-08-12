@@ -4,7 +4,7 @@
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
   "author": "huzaifasaleem.com",
-  "homepage": "https://huzaifasaleem.com",
+  "homepage": "https://rerit.vercel.app/",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -12,13 +12,13 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
-    "dev": "VITE_API_URL=https://rerit.vercel.app electron-vite dev",
-    "build": "VITE_API_URL=https://rerit.vercel.app npm run typecheck && electron-vite build",
+    "dev": "electron-vite dev",
+    "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "VITE_API_URL=https://rerit.vercel.app npm run typecheck && electron-vite build && electron-builder --win",
-    "build:mac": "VITE_API_URL=https://rerit.vercel.app npm run typecheck && electron-vite build && electron-builder --mac",
-    "build:linux": "VITE_API_URL=https://rerit.vercel.app npm run typecheck && electron-vite build && electron-builder --linux"
+    "build:win": "npm run typecheck && electron-vite build && electron-builder --win",
+    "build:mac": "npm run typecheck && electron-vite build && electron-builder --mac",
+    "build:linux": "npm run typecheck && electron-vite build && electron-builder --linux"
   },
   "build": {
     "appId": "com.huzaifasaleem.rerit",

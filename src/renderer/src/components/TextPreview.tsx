@@ -244,7 +244,7 @@ export function TextPreview({ selectedMood }: TextPreviewProps): ReactElement {
         <p className="text-muted-foreground">
           <strong>Note:</strong> This is a preview of how Rerit will rephrase your text. When using
           the app, simply select text anywhere on your computer, press{' '}
-          <kbd className="rounded bg-muted px-1.5 py-0.5">Cmd+Shift+R</kbd>, and the rephrased text
+          <kbd className="rounded bg-muted px-1.5 py-0.5">Cmd+Shift+E</kbd>, and the rephrased text
           will be pasted automatically.
         </p>
       </div>
