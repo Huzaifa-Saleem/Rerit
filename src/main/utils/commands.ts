@@ -1,9 +1,6 @@
 import { exec } from 'child_process'
 import Store from 'electron-store'
-import { promisify } from 'util'
 import { keyboard, Key } from '@nut-tree/nut-js'
-
-const execAsync = promisify(exec)
 const store = new Store({
   name: 'rerit-settings'
 })
@@ -32,9 +29,13 @@ export async function pasteText(): Promise<void> {
       await keyboard.pressKey(Key.LeftSuper, Key.V)
       await keyboard.releaseKey(Key.LeftSuper, Key.V)
     } else if (process.platform === 'win32') {
-      await execAsync(
-        `powershell -command "$wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys('^v')"`
-      )
+      // Use native keyboard driver (nut.js) on Windows as well
+      await keyboard.pressKey(Key.LeftControl, Key.V)
+      await keyboard.releaseKey(Key.LeftControl, Key.V)
+    } else if (process.platform === 'linux') {
+      // Linux: use native keyboard driver (nut.js)
+      await keyboard.pressKey(Key.LeftControl, Key.V)
+      await keyboard.releaseKey(Key.LeftControl, Key.V)
     }
   } catch (error) {
     console.error('Error pasting text:', error)
@@ -52,9 +53,12 @@ export async function copyText(): Promise<void> {
       await keyboard.pressKey(Key.LeftSuper, Key.C)
       await keyboard.releaseKey(Key.LeftSuper, Key.C)
     } else if (process.platform === 'win32') {
-      await execAsync(
-        `powershell -command "$wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys('^c')"`
-      )
+      await keyboard.pressKey(Key.LeftControl, Key.C)
+      await keyboard.releaseKey(Key.LeftControl, Key.C)
+    } else if (process.platform === 'linux') {
+      // Linux: use native keyboard driver (nut.js)
+      await keyboard.pressKey(Key.LeftControl, Key.C)
+      await keyboard.releaseKey(Key.LeftControl, Key.C)
     }
   } catch (error) {
     console.error('Error copying text:', error)
