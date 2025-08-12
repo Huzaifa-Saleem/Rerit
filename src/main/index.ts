@@ -15,7 +15,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createWindow } from './createWindow'
 import { URL } from 'url'
 import { join } from 'path'
-import { copyText, openAccessibilitySettings, pasteText } from './utils/commands'
+import { copyText, pasteText } from './utils/commands'
 import axios from 'axios'
 import Store from 'electron-store'
 import os from 'os'
@@ -345,7 +345,8 @@ const registerGlobalShortcut = (): void => {
       if (Notification.isSupported()) {
         new Notification({
           title: '✨ Rewrite Complete',
-          body: 'Text has been rewritten and pasted successfully!'
+          body: 'Text has been rewritten and pasted successfully!',
+          silent: true
         }).show()
       }
 
@@ -499,9 +500,6 @@ const updateTrayMenu = (isActive: boolean): void => {
 }
 
 app.whenReady().then(() => {
-  // Open accessibility settings for macOS global shortcuts
-  openAccessibilitySettings()
-
   electronApp.setAppUserModelId('com.rerit.app')
 
   // F12 or Ctrl+R to open devtools
