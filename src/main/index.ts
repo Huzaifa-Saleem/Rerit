@@ -25,6 +25,14 @@ function log(message: string): void {
   console.log(message)
 }
 
+// Development-only logger for verbose diagnostics
+const isDevelopmentEnvironment: boolean = !app.isPackaged
+function debugLog(message: string): void {
+  if (isDevelopmentEnvironment) {
+    console.log(message)
+  }
+}
+
 const store = new Store({
   name: 'rerit-store'
 })
@@ -239,27 +247,31 @@ app.on('open-url', (event, url) => {
 const registerGlobalShortcut = (): void => {
   if (isShortcutRegistered) return
 
-  console.log('Registering global shortcut: CommandOrControl+Shift+E')
+  debugLog('Registering global shortcut: CommandOrControl+Shift+E')
 
   // Register the global shortcut (Cmd+Shift+E or Ctrl+Shift+E)
   const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+E', async () => {
-    console.log('Shortcut triggered: CommandOrControl+Shift+E')
-
-    // Prevent any potential app closure during shortcut operations
-    app.focus({ steal: true })
+    debugLog('Shortcut triggered: CommandOrControl+Shift+E')
 
     try {
       // Copy the selected text
-      console.log('Copying selected text...')
+      const previousClipboardText = clipboard.readText()
       await copyText()
 
-      // Add a small delay to ensure the clipboard has the content
-      console.log('Waiting for clipboard content...')
-      await new Promise((resolve) => setTimeout(resolve, 150))
-
-      // Get the selected text from clipboard
-      const originalText = clipboard.readText()
-      console.log('Text from clipboard:', originalText)
+      // Poll the clipboard briefly until we detect new content
+      let originalText = ''
+      for (let attempt = 0; attempt < 15; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 120))
+        const current = clipboard.readText()
+        if (current && current.trim() !== '' && current !== previousClipboardText) {
+          originalText = current
+          break
+        }
+      }
+      if (!originalText) {
+        originalText = clipboard.readText()
+      }
+      console.log('COPY:', originalText)
 
       if (!originalText || originalText.trim() === '') {
         log('No text selected or copied to clipboard')
@@ -268,7 +280,7 @@ const registerGlobalShortcut = (): void => {
         if (Notification.isSupported()) {
           new Notification({
             title: 'Rerit',
-            body: 'No text selected. Please select some text first, then use Cmd+Shift+E.'
+            body: 'No text selected or permission missing. Select text and try again, and ensure Rerit has Accessibility permission in System Settings.'
           }).show()
         }
         return
@@ -292,7 +304,10 @@ const registerGlobalShortcut = (): void => {
       }
 
       // Make authenticated API request
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:3000'
+      const apiUrl =
+        (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
+        process.env.VITE_API_URL ||
+        'http://localhost:3000'
       const response = await axios.post(
         `${apiUrl}/api/rewrite`,
         {
@@ -309,8 +324,7 @@ const registerGlobalShortcut = (): void => {
       )
 
       const data = response.data
-
-      console.log('data', data)
+      console.log('API:', typeof data?.text === 'string' ? data.text : '')
 
       if (!data.text) {
         console.log('No text returned from API')
@@ -318,17 +332,14 @@ const registerGlobalShortcut = (): void => {
       }
 
       // Write the rephrased text to clipboard
-      console.log('Writing rephrased text to clipboard...', data.text)
       clipboard.writeText(data.text)
 
       // Wait for the clipboard write to complete before pasting
-      console.log('Waiting before paste operation...')
-      await new Promise((resolve) => setTimeout(resolve, 150))
+      await new Promise((resolve) => setTimeout(resolve, 200))
 
       // Paste the rephrased text
-      console.log('Pasting rephrased text...')
       await pasteText()
-      console.log('Paste operation completed')
+      console.log('PASTE:', data.text)
 
       // Show native success notification
       if (Notification.isSupported()) {
@@ -340,14 +351,21 @@ const registerGlobalShortcut = (): void => {
 
       // Notify the main window about the rephrasing (for logging/analytics)
       if (mainWindow && mainWindow.webContents) {
-        log('Notifying main window about rephrased text')
+        debugLog('Notifying main window about rephrased text')
         mainWindow.webContents.send('text-rephrased', {
           original: originalText,
           rephrased: data.text
         })
       }
-    } catch (error) {
-      console.error('Error during text rephrasing:', error)
+    } catch (error: unknown) {
+      let apiErrorPayload: unknown = error
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: unknown } }
+        if (axiosError.response?.data !== undefined) {
+          apiErrorPayload = axiosError.response.data
+        }
+      }
+      console.error('API_ERROR:', apiErrorPayload)
 
       // Show native error notification
       if (Notification.isSupported()) {

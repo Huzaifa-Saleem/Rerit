@@ -24,9 +24,19 @@ export function openAccessibilitySettings(): void {
 export async function pasteText(): Promise<void> {
   try {
     if (process.platform === 'darwin') {
-      await execAsync(
-        `osascript -e 'tell application "System Events" to keystroke "v" using {command down}'`
-      )
+      // Try AXPress paste first (more reliable in some contexts)
+      // Fallback to keystroke if Accessibility is not fully granted
+      try {
+        await execAsync(
+          `osascript -e 'tell application "System Events" to keystroke "v" using {command down}'`
+        )
+      } catch {
+        // Retry once after a brief delay
+        await new Promise((r) => setTimeout(r, 120))
+        await execAsync(
+          `osascript -e 'tell application "System Events" to keystroke "v" using {command down}'`
+        )
+      }
     } else if (process.platform === 'win32') {
       await execAsync(
         `powershell -command "$wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys('^v')"`
@@ -44,9 +54,24 @@ export async function pasteText(): Promise<void> {
 export async function copyText(): Promise<void> {
   try {
     if (process.platform === 'darwin') {
-      await execAsync(
-        `osascript -e 'tell application "System Events" to keystroke "c" using {command down}'`
-      )
+      try {
+        // Primary: Command+C keystroke
+        await execAsync(
+          `osascript -e 'tell application "System Events" to keystroke "c" using {command down}'`
+        )
+      } catch {
+        // ignore: keystroke may fail; we'll try menu fallback next
+      }
+
+      // Brief delay, then try menu fallback to improve reliability
+      await new Promise((r) => setTimeout(r, 120))
+      try {
+        await execAsync(
+          `osascript -e 'tell application "System Events" to tell (first application process whose frontmost is true) to click menu item "Copy" of menu "Edit" of menu bar 1'`
+        )
+      } catch {
+        // ignore: some apps may not expose a standard Edit > Copy menu item
+      }
     } else if (process.platform === 'win32') {
       await execAsync(
         `powershell -command "$wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys('^c')"`

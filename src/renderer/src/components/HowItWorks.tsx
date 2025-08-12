@@ -1,5 +1,4 @@
 import { ReactElement } from 'react'
-import { Button } from './ui/button'
 import { Zap, MousePointer, Keyboard, ClipboardCheck } from 'lucide-react'
 
 interface HowItWorksProps {
@@ -7,7 +6,7 @@ interface HowItWorksProps {
   onLaunch: () => void
 }
 
-export function HowItWorks({ isActive, onLaunch }: HowItWorksProps): ReactElement {
+export function HowItWorks({ isActive }: HowItWorksProps): ReactElement {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
