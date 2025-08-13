@@ -2,7 +2,7 @@
 
 A powerful desktop application that transforms your text with AI-powered tone adjustments. Use global shortcuts to instantly rewrite selected text across any application.
 
-![Rerit Demo](https://firebasestorage.googleapis.com/v0/b/timee-dc4ed.appspot.com/o/Edit%20Rerit.mp4?alt=media&token=4f729325-bfd9-4767-8638-ea810c2029af)
+![Rerit - Transform Your Writing Instantly](resources/Rerit - Transform Your Writing Instantly.jpg)
 
 ## ✨ Features
 
