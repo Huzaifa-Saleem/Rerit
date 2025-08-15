@@ -1,5 +1,6 @@
 import { ReactElement } from 'react'
 import { Zap, MousePointer, Keyboard, ClipboardCheck } from 'lucide-react'
+import { isMac } from '@renderer/lib/utils'
 
 interface HowItWorksProps {
   isActive: boolean
@@ -48,8 +49,11 @@ export function HowItWorks({ isActive }: HowItWorksProps): ReactElement {
               </div>
               <h3 className="font-medium">2. Use Shortcut</h3>
               <p className="text-sm text-muted-foreground">
-                Press <kbd className="rounded bg-muted px-1.5 py-0.5">Cmd+Shift+E</kbd> to activate
-                Rerit
+                Press{' '}
+                <kbd className="rounded bg-muted px-1.5 py-0.5">
+                  {isMac() ? 'Cmd' : 'Ctrl'}+Shift+E
+                </kbd>{' '}
+                to activate Rerit
               </p>
             </div>
 

@@ -2,6 +2,7 @@ import { ReactElement, useState } from 'react'
 import { Button } from './ui/button'
 import { toneCategories, popularTones, getToneDescription } from '@renderer/services/api'
 import { ChevronDown, ChevronUp, Zap, Star, Settings } from 'lucide-react'
+import { isMac } from '@renderer/lib/utils'
 
 interface TonePickerProps {
   selectedTone: string
@@ -289,7 +290,7 @@ export function TonePicker({
 
           <div className="flex justify-between items-center">
             <p className="text-xs text-gray-500">
-              Press Cmd/Ctrl+Enter or click Create to apply custom tone
+              Press {isMac() ? 'Cmd' : 'Ctrl'}+Enter or click Create to apply custom tone
             </p>
             <Button size="sm" variant="outline" onClick={handleCreateCustomTone}>
               Create Tone

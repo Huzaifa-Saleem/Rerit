@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { notificationManager } from '@renderer/components/NotificationSystem'
+import { isMac } from '@renderer/lib/utils'
 
 interface ShortcutNotification {
   type: string
@@ -50,7 +51,7 @@ export function useShortcutNotifications(): void {
       switch (data.type) {
         case 'no-text':
           notificationManager.showInfo(
-            'Please select some text first, then use Cmd+Shift+E (or Ctrl+Shift+E).',
+            `Please select some text first, then use ${isMac() ? 'Cmd' : 'Ctrl'}+Shift+E.`,
             'No Text Selected'
           )
           break

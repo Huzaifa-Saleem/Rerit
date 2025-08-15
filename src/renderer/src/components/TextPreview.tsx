@@ -2,6 +2,7 @@ import { ReactElement, useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
 import { ArrowRight } from 'lucide-react'
+import { isMac } from '@renderer/lib/utils'
 
 interface TextPreviewProps {
   selectedMood: string
@@ -244,8 +245,8 @@ export function TextPreview({ selectedMood }: TextPreviewProps): ReactElement {
         <p className="text-muted-foreground">
           <strong>Note:</strong> This is a preview of how Rerit will rephrase your text. When using
           the app, simply select text anywhere on your computer, press{' '}
-          <kbd className="rounded bg-muted px-1.5 py-0.5">Cmd+Shift+E</kbd>, and the rephrased text
-          will be pasted automatically.
+          <kbd className="rounded bg-muted px-1.5 py-0.5">{isMac() ? 'Cmd' : 'Ctrl'}+Shift+E</kbd>,
+          and the rephrased text will be pasted automatically.
         </p>
       </div>
     </div>
