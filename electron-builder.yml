@@ -1,5 +1,9 @@
 appId: com.rerit.app
-productName: rerit
+productName: Rerit
+protocols:
+  - name: Rerit authentication
+    schemes:
+      - rerit
 directories:
   buildResources: build
 files:
@@ -23,13 +27,11 @@ nsis:
   createDesktopShortcut: always
 mac:
   icon: resources/icon.icns
+  category: public.app-category.productivity
+  target:
+    - dmg
   entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
+  notarize: true
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
@@ -44,7 +46,7 @@ appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
-electronDownload:
-  mirror: https://npmmirror.com/mirrors/electron/
+  provider: github
+  owner: Huzaifa-Saleem
+  repo: Rerit
+  releaseType: release

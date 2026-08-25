@@ -1,6 +1,6 @@
 import { exec } from 'child_process'
 import Store from 'electron-store'
-import { keyboard, Key } from '@nut-tree/nut-js'
+import { keyboard, Key } from '@nut-tree-fork/nut-js'
 const store = new Store({
   name: 'rerit-settings'
 })

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Rerit app icon</title>
+  <desc id="desc">A black clipped writing sheet with an R and a lime insertion cursor.</desc>
+  <rect width="1024" height="1024" rx="224" fill="#F1EFE7"/>
+  <path d="M170 146h684v548L668 878H170V146Z" fill="#151611"/>
+  <path d="M668 694h186L668 878V694Z" fill="#292A24"/>
+  <text x="292" y="692" fill="#F1EFE7" font-family="Avenir Next, Helvetica Neue, Arial, sans-serif" font-size="492" font-weight="650" letter-spacing="-38">R</text>
+  <rect x="704" y="254" width="42" height="286" fill="#C9F45B"/>
+  <rect x="704" y="568" width="42" height="42" fill="#C9F45B"/>
+</svg>

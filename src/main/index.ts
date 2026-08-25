@@ -4,21 +4,20 @@ import {
   shell,
   ipcMain,
   globalShortcut,
-  clipboard,
   Tray,
   Menu,
   nativeImage,
-  safeStorage,
-  Notification
+  safeStorage
 } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createWindow } from './createWindow'
 import { URL } from 'url'
 import { join } from 'path'
-import { copyText, pasteText } from './utils/commands'
-import axios from 'axios'
 import Store from 'electron-store'
 import os from 'os'
+import { randomBytes } from 'crypto'
+import { RewriteController, RewriteStatus } from './rewrite/controller'
+import { createStatusWindow, positionStatusWindow } from './createWindow/statusWindow'
 
 // Simple logging function
 function log(message: string): void {
@@ -39,15 +38,61 @@ const store = new Store({
 
 // Create separate store for auth credentials
 const authStore = new Store({
-  name: 'rerit-auth',
-  encryptionKey: 'rerit-secure-auth-key-2024'
+  name: 'rerit-auth'
 })
 
 // Store references to windows and tray
 let mainWindow: BrowserWindow | null = null
+let statusWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isShortcutRegistered = false
 let isAppQuitting = false
+let latestRewriteStatus: RewriteStatus | null = null
+let statusShowTimer: ReturnType<typeof setTimeout> | null = null
+let statusHideTimer: ReturnType<typeof setTimeout> | null = null
+let pendingDeepLink: string | null = null
+let pendingAuthState: string | null = null
+
+const clearStatusTimer = (timer: ReturnType<typeof setTimeout> | null): void => {
+  if (timer) clearTimeout(timer)
+}
+
+const presentRewriteStatus = (status: RewriteStatus): void => {
+  if (!statusWindow || statusWindow.isDestroyed()) return
+
+  statusWindow.webContents.send('rewrite-status', status)
+  clearStatusTimer(statusHideTimer)
+  statusHideTimer = null
+
+  const busy = ['capturing', 'requesting', 'applying'].includes(status.stage)
+  if (busy) {
+    if (statusWindow.isVisible() || statusShowTimer) return
+    statusShowTimer = setTimeout(() => {
+      statusShowTimer = null
+      if (!statusWindow || statusWindow.isDestroyed()) return
+      positionStatusWindow(statusWindow)
+      statusWindow.showInactive()
+    }, 140)
+    return
+  }
+
+  clearStatusTimer(statusShowTimer)
+  statusShowTimer = null
+
+  if (status.stage === 'failed') {
+    positionStatusWindow(statusWindow)
+    statusWindow.showInactive()
+    statusHideTimer = setTimeout(() => statusWindow?.hide(), 2400)
+    return
+  }
+
+  if (status.stage === 'completed' && statusWindow.isVisible()) {
+    statusHideTimer = setTimeout(() => statusWindow?.hide(), 620)
+    return
+  }
+
+  statusWindow.hide()
+}
 
 // Authentication interfaces
 interface AuthCredentials {
@@ -86,12 +131,8 @@ function storeAuthCredentials(credentials: Omit<AuthCredentials, 'storedAt' | 'e
         storedAt: new Date().toISOString()
       })
     } else {
-      // Fallback to unencrypted storage (not recommended for production)
-      authStore.set('auth', {
-        ...credentials,
-        encrypted: false,
-        storedAt: new Date().toISOString()
-      })
+      console.error('Secure credential storage is unavailable; credentials were not saved')
+      return
     }
 
     log('Authentication credentials stored securely')
@@ -135,7 +176,7 @@ function clearAuthCredentials(): void {
 
 // Deep link handler
 function handleDeepLink(url: string): void {
-  log(`Deep link received: ${url}`)
+  log('Authentication deep link received')
 
   try {
     const parsedUrl = new URL(url)
@@ -151,8 +192,17 @@ function handleDeepLink(url: string): void {
       const userName = parsedUrl.searchParams.get('userName')
       const userEmail = parsedUrl.searchParams.get('userEmail')
       const userAvatar = parsedUrl.searchParams.get('userAvatar')
+      const state = parsedUrl.searchParams.get('state')
+
+      if (!pendingAuthState || state !== pendingAuthState) {
+        mainWindow?.webContents.send('auth-error', {
+          error: 'This sign-in request is no longer valid. Please try again.'
+        })
+        return
+      }
 
       if (userId && token && userName && userEmail) {
+        pendingAuthState = null
         // Store credentials securely
         storeAuthCredentials({
           userId,
@@ -210,9 +260,10 @@ function handleDeepLink(url: string): void {
 // Initiate login function
 function initiateLogin(): void {
   const deviceName = `${os.hostname()}-${os.platform()}`
+  pendingAuthState = randomBytes(24).toString('base64url')
   // Use environment variable or fallback to localhost for development
   const apiUrl = process.env.VITE_API_URL || 'https://rerit.vercel.app'
-  const authUrl = `${apiUrl}/api/auth/electron/callback?source=electron&device=${encodeURIComponent(deviceName)}`
+  const authUrl = `${apiUrl}/api/auth/electron/callback?source=electron&device=${encodeURIComponent(deviceName)}&state=${encodeURIComponent(pendingAuthState)}`
 
   log(`Opening auth URL: ${authUrl}`)
 
@@ -240,156 +291,37 @@ if (process.defaultApp) {
 // Handle deep links on macOS
 app.on('open-url', (event, url) => {
   event.preventDefault()
+  if (!app.isReady() || !mainWindow) {
+    pendingDeepLink = url
+    return
+  }
   handleDeepLink(url)
 })
 
-// Function to register the global shortcut
+const rewriteController = new RewriteController({
+  getCredentials: () => {
+    const credentials = getStoredCredentials()
+    return credentials ? { userId: credentials.userId, token: credentials.token } : null
+  },
+  getAction: () => String(store.get('tone') || 'clean-up'),
+  getApiUrl: () =>
+    (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
+    process.env.VITE_API_URL ||
+    'https://rerit.vercel.app',
+  onStatus: (status) => {
+    latestRewriteStatus = status
+    mainWindow?.webContents.send('rewrite-status', status)
+    presentRewriteStatus(status)
+  }
+})
+
+// Register the high-frequency shortcut without involving the renderer.
 const registerGlobalShortcut = (): void => {
   if (isShortcutRegistered) return
 
   debugLog('Registering global shortcut: CommandOrControl+Shift+E')
-
-  // Register the global shortcut (Cmd+Shift+E or Ctrl+Shift+E)
-  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+E', async () => {
-    debugLog('Shortcut triggered: CommandOrControl+Shift+E')
-
-    try {
-      // Copy the selected text
-      const previousClipboardText = clipboard.readText()
-      await copyText()
-
-      // Poll the clipboard briefly until we detect new content
-      let originalText = ''
-      for (let attempt = 0; attempt < 15; attempt++) {
-        await new Promise((resolve) => setTimeout(resolve, 120))
-        const current = clipboard.readText()
-        if (current && current.trim() !== '' && current !== previousClipboardText) {
-          originalText = current
-          break
-        }
-      }
-      if (!originalText) {
-        originalText = clipboard.readText()
-      }
-      console.log('COPY:', originalText)
-
-      if (!originalText || originalText.trim() === '') {
-        log('No text selected or copied to clipboard')
-
-        // Show native Electron notification
-        if (Notification.isSupported()) {
-          new Notification({
-            title: 'Rerit',
-            body: 'No text selected or permission missing. Select text and try again, and ensure Rerit has Accessibility permission in System Settings.'
-          }).show()
-        }
-        return
-      }
-
-      const tone = store.get('tone')
-
-      // Get stored credentials for API authentication
-      const credentials = getStoredCredentials()
-      if (!credentials) {
-        log('No credentials found for API request')
-
-        // Show native Electron notification
-        if (Notification.isSupported()) {
-          new Notification({
-            title: 'Rerit - Authentication Required',
-            body: 'Please sign in to your account first to use the rewrite shortcut.'
-          }).show()
-        }
-        return
-      }
-
-      // Make authenticated API request
-      const apiUrl =
-        (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ||
-        process.env.VITE_API_URL ||
-        'http://localhost:3000'
-      const response = await axios.post(
-        `${apiUrl}/api/rewrite`,
-        {
-          text: originalText,
-          tone: tone || 'professional'
-        },
-        {
-          headers: {
-            Authorization: `Electron ${credentials.userId}:${credentials.token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': `ReritApp/1.0.0 (${process.platform})`
-          }
-        }
-      )
-
-      const data = response.data
-      console.log('API:', typeof data?.text === 'string' ? data.text : '')
-
-      if (!data.text) {
-        console.log('No text returned from API')
-        return
-      }
-
-      // Write the rephrased text to clipboard
-      clipboard.writeText(data.text)
-
-      // Wait for the clipboard write to complete before pasting
-      await new Promise((resolve) => setTimeout(resolve, 200))
-
-      // Paste the rephrased text
-      await pasteText()
-      console.log('PASTE:', data.text)
-
-      // Show native success notification
-      if (Notification.isSupported()) {
-        new Notification({
-          title: '✨ Rewrite Complete',
-          body: 'Text has been rewritten and pasted successfully!',
-          silent: true
-        }).show()
-      }
-
-      // Notify the main window about the rephrasing (for logging/analytics)
-      if (mainWindow && mainWindow.webContents) {
-        debugLog('Notifying main window about rephrased text')
-        mainWindow.webContents.send('text-rephrased', {
-          original: originalText,
-          rephrased: data.text
-        })
-      }
-    } catch (error: unknown) {
-      let apiErrorPayload: unknown = error
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: unknown } }
-        if (axiosError.response?.data !== undefined) {
-          apiErrorPayload = axiosError.response.data
-        }
-      }
-      console.error('API_ERROR:', apiErrorPayload)
-
-      // Show native error notification
-      if (Notification.isSupported()) {
-        let errorMessage = 'Failed to rewrite text. Please try again.'
-
-        // Customize error message based on error type
-        if (error && typeof error === 'object' && 'response' in error) {
-          const axiosError = error as { response?: { status?: number; data?: { error?: string } } }
-          if (axiosError.response?.status === 401) {
-            errorMessage = 'Authentication expired. Please sign in again.'
-          } else if (axiosError.response?.status === 429) {
-            errorMessage = 'Rate limit exceeded. Please try again later.'
-          } else if (axiosError.response?.data?.error) {
-            errorMessage = axiosError.response.data.error
-          }
-        }
-
-        new Notification({
-          title: 'Rerit - Error',
-          body: errorMessage
-        }).show()
-      }
-    }
+  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+E', () => {
+    void rewriteController.run()
   })
 
   isShortcutRegistered = shortcutRegistered
@@ -403,6 +335,7 @@ const registerGlobalShortcut = (): void => {
 
 // Function to unregister the global shortcut
 const unregisterGlobalShortcut = (): void => {
+  rewriteController.cancel()
   globalShortcut.unregister('CommandOrControl+Shift+E')
   isShortcutRegistered = false
 }
@@ -518,6 +451,13 @@ app.whenReady().then(() => {
 
   // Create the main window
   mainWindow = createWindow()
+  statusWindow = createStatusWindow()
+
+  if (pendingDeepLink) {
+    const url = pendingDeepLink
+    pendingDeepLink = null
+    handleDeepLink(url)
+  }
 
   // On macOS: keep Dock visible only while the window is visible
   if (process.platform === 'darwin' && mainWindow) {
@@ -533,10 +473,6 @@ app.whenReady().then(() => {
   // Set up authentication IPC handlers
   ipcMain.handle('initiate-login', () => {
     initiateLogin()
-  })
-
-  ipcMain.handle('open-external-auth', (_event, url: string) => {
-    shell.openExternal(url)
   })
 
   ipcMain.handle('get-auth-status', () => {
@@ -562,6 +498,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle('logout', () => {
     clearAuthCredentials()
+    return { success: true }
+  })
+
+  ipcMain.handle('get-rewrite-status', () => latestRewriteStatus)
+
+  ipcMain.handle('cancel-rewrite', () => {
+    rewriteController.cancel()
     return { success: true }
   })
 

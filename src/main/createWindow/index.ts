@@ -21,7 +21,7 @@ export function createWindow(): BrowserWindow {
     icon: icon, // Apply icon to all platforms
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       nodeIntegration: false,
       contextIsolation: true
     }

@@ -1,59 +1,39 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 
-// Custom APIs for renderer
-const api = {
-  // Minimize to tray and activate shortcut
-  minimizeToTray: (): void => {
-    ipcRenderer.send('minimize-to-tray')
+type Unsubscribe = () => void
+
+function on<T>(channel: string, callback: (payload: T) => void): Unsubscribe {
+  const listener = (_event: Electron.IpcRendererEvent, payload: T): void => callback(payload)
+  ipcRenderer.on(channel, listener)
+  return () => ipcRenderer.removeListener(channel, listener)
+}
+
+const rerit = {
+  auth: {
+    getStatus: () => ipcRenderer.invoke('get-auth-status'),
+    signIn: () => ipcRenderer.invoke('initiate-login'),
+    signOut: () => ipcRenderer.invoke('logout'),
+    onSuccess: (callback: (payload: unknown) => void) => on('auth-success', callback),
+    onError: (callback: (payload: unknown) => void) => on('auth-error', callback)
   },
-
-  // Toggle global shortcut
-  toggleShortcut: (isActive: boolean): void => {
-    ipcRenderer.send('toggle-shortcut', isActive)
+  rewrite: {
+    getStatus: () => ipcRenderer.invoke('get-rewrite-status'),
+    cancel: () => ipcRenderer.invoke('cancel-rewrite'),
+    onStatus: (callback: (payload: unknown) => void) => on('rewrite-status', callback)
   },
-
-  // Set mood in electron store
-  setMood: (mood: string): void => {
-    ipcRenderer.send('set-mood', mood)
+  preferences: {
+    setDefaultAction: (action: string) => ipcRenderer.send('set-tone', action),
+    setShortcutActive: (active: boolean) => ipcRenderer.send('toggle-shortcut', active)
   },
-
-  // Listen for text rephrasing events
-  onTextRephrased: (
-    callback: (
-      event: Electron.IpcRendererEvent,
-      data: { original: string; rephrased: string }
-    ) => void
-  ): (() => void) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      data: { original: string; rephrased: string }
-    ): void => {
-      callback(_event, data)
-    }
-
-    ipcRenderer.on('text-rephrased', listener)
-
-    // Return a function to remove the listener
-    return (): void => {
-      ipcRenderer.removeListener('text-rephrased', listener)
-    }
+  app: {
+    runInBackground: () => ipcRenderer.send('minimize-to-tray'),
+    quit: () => ipcRenderer.send('quit-app')
   }
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error(error)
-  }
+  contextBridge.exposeInMainWorld('rerit', rerit)
 } else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
+  // @ts-ignore fallback for unusual development configurations
+  window.rerit = rerit
 }

@@ -1,7 +1,7 @@
 {
   "name": "rerit",
-  "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "version": "1.2.0",
+  "description": "Rewrite selected text in any Mac app without breaking your flow.",
   "main": "./out/main/index.js",
   "author": "huzaifasaleem.com",
   "homepage": "https://rerit.vercel.app/",
@@ -20,37 +20,13 @@
     "build:mac": "npm run typecheck && electron-vite build && electron-builder --mac",
     "build:linux": "npm run typecheck && electron-vite build && electron-builder --linux"
   },
-  "build": {
-    "appId": "com.rerit.app",
-    "productName": "rerit",
-    "win": {
-      "target": "nsis"
-    },
-    "mac": {
-      "target": "dmg"
-    },
-    "linux": {
-      "target": "AppImage"
-    }
-  },
   "dependencies": {
-    "@clerk/clerk-react": "^5.32.1",
-    "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^4.0.0",
-    "@radix-ui/react-label": "^2.1.7",
-    "@radix-ui/react-slot": "^1.2.3",
     "@tailwindcss/vite": "^4.1.11",
-    "axios": "^1.10.0",
-    "@nut-tree/nut-js": "^4.3.0",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
+    "@nut-tree-fork/nut-js": "^4.2.6",
     "electron-store": "8",
-    "electron-updater": "^6.3.9",
     "lucide-react": "^0.525.0",
-    "react-router-dom": "^7.6.3",
-    "tailwind-merge": "^3.3.1",
-    "tailwindcss": "^4.1.11",
-    "tw-animate-css": "^1.3.4"
+    "tailwindcss": "^4.1.11"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
